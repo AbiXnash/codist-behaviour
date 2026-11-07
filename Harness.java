@@ -83,6 +83,9 @@ public class Harness {
         "  x  ", "1", "-1", "0.5", "http://example.com/a/../b?x=1#f", "User-agent: *\nDisallow: /private\nCrawl-delay: 5",
         "<p>hi</p>", "ÿé中", "a".repeat(300)};
 
+    // Times of day in UTC. Late evening and just after midnight fall on another calendar day in most time zones, so
+    // code that picks the wrong zone for "today" returns a different date for them.
+    static final String[] TIMES = {"00:00", "01:30", "12:00", "20:30", "23:59:59"};
     static final String[] DATES = {"1600-01-01", "1999-12-31", "2010-06-15", "2020-02-29", "2049-01-01", "2100-01-01", "2200-01-01", "3001-01-01"};
 
     static List<Recipe> values(Class<?> t, Type generic, ClassLoader l, int depth) {
@@ -106,8 +109,8 @@ public class Harness {
         else if (t == Path.class) for (String s : new String[]{"missing.txt", "/tmp"}) out.add(new Lit(Path.of(s)));
         else if (t == java.time.LocalDate.class) for (String d : DATES) out.add(new Lit(java.time.LocalDate.parse(d)));
         else if (t == java.time.LocalDateTime.class) for (String d : DATES) out.add(new Lit(java.time.LocalDate.parse(d).atTime(12, 0)));
-        else if (t == java.time.ZonedDateTime.class) for (String d : DATES) out.add(new Lit(java.time.LocalDate.parse(d).atTime(12, 0).atZone(java.time.ZoneOffset.UTC)));
-        else if (t == java.time.Instant.class) for (String d : DATES) out.add(new Lit(java.time.LocalDate.parse(d).atStartOfDay(java.time.ZoneOffset.UTC).toInstant()));
+        else if (t == java.time.ZonedDateTime.class) for (String d : DATES) for (String h : TIMES) out.add(new Lit(java.time.LocalDate.parse(d).atTime(java.time.LocalTime.parse(h)).atZone(java.time.ZoneOffset.UTC)));
+        else if (t == java.time.Instant.class) for (String d : DATES) for (String h : TIMES) out.add(new Lit(java.time.LocalDate.parse(d).atTime(java.time.LocalTime.parse(h)).toInstant(java.time.ZoneOffset.UTC)));
         else if (t == Date.class) for (String d : DATES) out.add(new Lit(new FreshDate(d)));
         else if (t == Calendar.class || t == GregorianCalendar.class) for (String d : DATES) out.add(new Lit(new FreshCalendar(d)));
         else if (t == java.time.Duration.class) for (long sec : new long[]{0, 1, 3600, -1}) out.add(new Lit(java.time.Duration.ofSeconds(sec)));
