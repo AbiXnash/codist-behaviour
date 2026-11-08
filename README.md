@@ -47,3 +47,13 @@ report := r.Run(ctx, sha) // report.Differences, or report.Reason when skipped
 ```bash
 go test -tags 'grammar_subset grammar_subset_java' ./...
 ```
+
+## Licence
+
+Source available under the [PolyForm Noncommercial License 1.0.0](LICENSE): free for any noncommercial purpose, such
+as personal study, research, hobby projects and testing, and for use by charities, schools, public research and
+public health bodies and government institutions. **Using it for a business, or in anything sold, needs a commercial
+licence** from the author: open an issue at [github.com/AbiXnash/codist](https://github.com/AbiXnash/codist/issues)
+to ask. Third-party code included in Codist keeps its own licence.
+
+Required Notice: Copyright 2026 Abinash (https://github.com/AbiXnash)
