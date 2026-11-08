@@ -106,8 +106,11 @@ func (r *Runner) run(ctx context.Context, sha string) Report {
 	ctx, cancel := context.WithTimeout(ctx, r.Timeout)
 	defer cancel()
 
+	logger().Debug("running changed methods", "sha", c.Short, "module", moduleName(module), "methods", len(methods))
 	dir := filepath.Join(r.Work, sha[:12])
-	_ = os.RemoveAll(dir)
+	if err := os.RemoveAll(dir); err != nil {
+		logger().Warn("old work folder not removed", "dir", dir, "err", err)
+	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return failed(sha, module, methods, err)
 	}
@@ -117,7 +120,10 @@ func (r *Runner) run(ctx context.Context, sha string) Report {
 		if err := r.export(ctx, v.ref, src); err != nil {
 			return failed(sha, module, methods, err)
 		}
-		if err := build(ctx, javac, src, module, filepath.Join(dir, v.name)); err != nil {
+		built := time.Now()
+		err := build(ctx, javac, src, module, filepath.Join(dir, v.name))
+		logger().Debug("built", "sha", c.Short, "version", v.name, "took", time.Since(built).Round(time.Millisecond), "err", err)
+		if err != nil {
 			var setup setupError
 			if errors.As(err, &setup) {
 				return skipped(sha, err.Error())
@@ -137,7 +143,10 @@ func (r *Runner) run(ctx context.Context, sha string) Report {
 		return failed(sha, module, methods, err)
 	}
 	empty := filepath.Join(dir, "run") // the code under test may write files; keep them away from the project
-	_ = os.MkdirAll(empty, 0o755)
+	if err := os.MkdirAll(empty, 0o755); err != nil {
+		return failed(sha, module, methods, err)
+	}
+	ran := time.Now()
 	cmd := exec.CommandContext(ctx, javaBin, "-Xmx1g", "-cp", harness, "Harness", dir, "--json")
 	cmd.Dir, cmd.Env = empty, cleanEnv(empty)
 	var stdout, stderr bytes.Buffer
@@ -148,6 +157,7 @@ func (r *Runner) run(ctx context.Context, sha string) Report {
 		}
 		return failed(sha, module, methods, fmt.Errorf("the harness stopped: %v %s", err, lastLine(stderr.String())))
 	}
+	logger().Debug("harness ran", "sha", c.Short, "took", time.Since(ran).Round(time.Millisecond), "stderr", lastLine(stderr.String()))
 	rep := Report{SHA: sha, Module: module, Methods: methods}
 	if err := json.Unmarshal(lastJSON(stdout.Bytes()), &rep); err != nil {
 		return failed(sha, module, methods, fmt.Errorf("unreadable harness output: %v", err))
@@ -431,6 +441,7 @@ func build(ctx context.Context, javac, root, module, out string) error {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
+		logger().Debug("maven failed", "dir", run, "args", strings.Join(args, " "), "output", tail(output.String(), 2000))
 		return errors.New(mavenError(output.String()))
 	}
 	cp, err := os.ReadFile(filepath.Join(dir, cpFile))
@@ -535,12 +546,15 @@ func compile(ctx context.Context, javac, module, cp, out string) error {
 		var stderr bytes.Buffer
 		cmd.Stderr = &stderr
 		if err := cmd.Run(); err == nil {
-			_ = copyTree(filepath.Join(module, "src", "main", "resources"), classes)
+			if err := copyTree(filepath.Join(module, "src", "main", "resources"), classes); err != nil {
+				logger().Warn("resources not copied", "module", module, "err", err)
+			}
 			return os.WriteFile(filepath.Join(out, "cp.txt"), []byte(cp), 0o644)
 		} else if ctx.Err() != nil {
 			return ctx.Err()
 		}
 		last = firstError(stderr.String())
+		logger().Debug("javac failed", "release", release, "files", len(files), "error", last)
 	}
 	return errors.New(last)
 }
@@ -600,4 +614,12 @@ func lastJSON(b []byte) []byte {
 		}
 	}
 	return b
+}
+
+// tail is the end of s, at most n bytes, for logs.
+func tail(s string, n int) string {
+	if len(s) > n {
+		return "…" + s[len(s)-n:]
+	}
+	return s
 }
