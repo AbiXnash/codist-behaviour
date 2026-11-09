@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	git "github.com/AbiXnash/codist-git"
+	git "github.com/abxengg/codist-git"
 )
 
 // repo builds a git repository from a list of commits, each a map of files.

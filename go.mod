@@ -1,10 +1,10 @@
-module github.com/AbiXnash/codist-behaviour
+module github.com/abxengg/codist-behaviour
 
 go 1.26.0
 
 require (
-	github.com/AbiXnash/codist-git v0.1.0
-	github.com/AbiXnash/codist-java v0.2.0
+	github.com/abxengg/codist-git v0.5.0
+	github.com/abxengg/codist-java v0.5.0
 )
 
 require github.com/odvcencio/gotreesitter v0.56.0 // indirect

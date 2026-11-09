@@ -26,8 +26,8 @@ import (
 	"strings"
 	"time"
 
-	git "github.com/AbiXnash/codist-git"
-	java "github.com/AbiXnash/codist-java"
+	git "github.com/abxengg/codist-git"
+	java "github.com/abxengg/codist-java"
 )
 
 //go:embed Harness.java

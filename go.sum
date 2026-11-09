@@ -1,6 +1,6 @@
-github.com/AbiXnash/codist-git v0.1.0 h1:KSKTAwiiIjyll3m087ccLIsVxONBJyl59FsMAd1dvso=
-github.com/AbiXnash/codist-git v0.1.0/go.mod h1:RIqrSdD6PQGw3PA6QT+PyPnZPqUxg5Tw+3TUe6iIrQk=
-github.com/AbiXnash/codist-java v0.2.0 h1:lkUvZneYyND8u06hVKztz8F2tlRhhA8q/K06s3Gohrc=
-github.com/AbiXnash/codist-java v0.2.0/go.mod h1:bIJs2YZpqp/4jvW2Uss/ZCBvAOIkwHcXDz7m6W3HNMs=
+github.com/abxengg/codist-git v0.5.0 h1:kC6jalk6OjZrb5w88iG/RQkkO2alcaOdd/tJjdm+mxc=
+github.com/abxengg/codist-git v0.5.0/go.mod h1:VzPRB84JgwgZZt3GG8CBfFeqWSGQCMbVYv+/kEz/P1I=
+github.com/abxengg/codist-java v0.5.0 h1:mhX+u6N9Up/I/cIBjLG1qfo8Cz8uOyF0T5pyc3wI3hA=
+github.com/abxengg/codist-java v0.5.0/go.mod h1:kvwoO80CMgn6PbB8VkNkDraxYZ7JXgwI+XhgeIQHPuQ=
 github.com/odvcencio/gotreesitter v0.56.0 h1:2cyxAbG9yAMs1d8xTAxq3HWrKh8m7mi7pAjRBZd1Pp8=
 github.com/odvcencio/gotreesitter v0.56.0/go.mod h1:hBVkghd0paaYAVwd2087vfwdeU984bQbMo9LvpE0moo=

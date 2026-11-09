@@ -1,6 +1,6 @@
 # codist-behaviour
 
-Part of [Codist](https://github.com/AbiXnash/codist). It runs the methods a commit changed on the code before and
+Part of [Codist](https://github.com/abxengg/codist). It runs the methods a commit changed on the code before and
 after the commit, with the same inputs, and reports what a caller would see differently:
 
 ```
@@ -14,7 +14,7 @@ A person reads each difference and decides whether it was meant. Nothing here wr
 ## How
 
 1. Find the methods the commit changed, and the methods in the same module that call them (through
-   [codist-java](https://github.com/AbiXnash/codist-java)'s call graph).
+   [codist-java](https://github.com/abxengg/codist-java)'s call graph).
 2. Check out the commit and its parent into a scratch folder.
 3. Build the module both times. A Maven project is built by Maven (the project's `mvnw`, or `mvn`), together with
    the sibling modules it needs; a project with no build file is compiled with `javac`.
@@ -23,7 +23,7 @@ A person reads each difference and decides whether it was meant. Nothing here wr
    the arguments after the call. The old version also runs against itself, so results that change from run to run
    are left out, and so are differences only in private fields or only because the harness passed null.
 
-Measured on real bugs and refactors in [codist-eval](https://github.com/AbiXnash/codist-eval): the real difference
+Measured on real bugs and refactors in [codist-eval](https://github.com/abxengg/codist-eval): the real difference
 showed in 4 of 10 bugs, and no false alarm in 22 refactors.
 
 ## Safety
@@ -38,7 +38,7 @@ A JDK 17 or later (`java` and `javac`), and for Maven projects the project's `mv
 yet. Anything missing is reported as the reason a commit was skipped.
 
 ```go
-import behaviour "github.com/AbiXnash/codist-behaviour"
+import behaviour "github.com/abxengg/codist-behaviour"
 
 r := &behaviour.Runner{Repo: repo, Work: dir}
 report := r.Run(ctx, sha) // report.Differences, or report.Reason when skipped
@@ -53,7 +53,7 @@ go test -tags 'grammar_subset grammar_subset_java' ./...
 Source available under the [PolyForm Noncommercial License 1.0.0](LICENSE): free for any noncommercial purpose, such
 as personal study, research, hobby projects and testing, and for use by charities, schools, public research and
 public health bodies and government institutions. **Using it for a business, or in anything sold, needs a commercial
-licence** from the author: open an issue at [github.com/AbiXnash/codist](https://github.com/AbiXnash/codist/issues)
+licence** from the author: open an issue at [github.com/abxengg/codist](https://github.com/abxengg/codist/issues)
 to ask. Third-party code included in Codist keeps its own licence.
 
 Required Notice: Copyright 2026 Abinash (https://github.com/AbiXnash)
