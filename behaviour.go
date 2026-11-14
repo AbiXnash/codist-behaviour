@@ -116,15 +116,15 @@ func (r *Runner) run(ctx context.Context, sha string) Report {
 	}
 	defer os.RemoveAll(dir)
 	for _, v := range []struct{ name, ref string }{{"old", c.Parents[0]}, {"new", sha}} {
-		src := filepath.Join(dir, "src-"+v.name)
-		if err := r.export(ctx, v.ref, src); err != nil {
-			return failed(sha, module, methods, err)
-		}
 		built := time.Now()
-		err := build(ctx, javac, src, module, filepath.Join(dir, v.name))
-		logger().Debug("built", "sha", c.Short, "version", v.name, "took", time.Since(built).Round(time.Millisecond), "err", err)
+		src, reused, err := r.version(ctx, javac, v.ref, module, filepath.Join(dir, v.name))
+		logger().Debug("built", "sha", c.Short, "version", v.name, "reused", reused, "took", time.Since(built).Round(time.Millisecond), "err", err)
 		if err != nil {
 			var setup setupError
+			var export exportError
+			if errors.As(err, &export) {
+				return failed(sha, module, methods, err)
+			}
 			if errors.As(err, &setup) {
 				return skipped(sha, err.Error())
 			}
@@ -173,6 +173,51 @@ func (r *Runner) run(ctx context.Context, sha string) Report {
 		rep.Notes = []string{}
 	}
 	return rep
+}
+
+// kept is how many built commits stay in the work folder.
+const kept = 6
+
+// exportError is a commit whose files could not be written out.
+type exportError struct{ error }
+
+// version puts one commit's built module into out: its classes and cp.txt. Each commit is built once and kept in the
+// work folder, with its source since the class path points into it, so the commit built as the new side of one run
+// is not built again as the old side of the next. It returns where the source is and whether it was already built.
+func (r *Runner) version(ctx context.Context, javac, ref, module, out string) (string, bool, error) {
+	sum := sha1.Sum([]byte(module))
+	keep := filepath.Join(r.Work, "built", ref[:min(12, len(ref))]+"-"+hex.EncodeToString(sum[:4]))
+	src, done := filepath.Join(keep, "src"), filepath.Join(keep, "out")
+	if _, err := os.Stat(filepath.Join(done, "cp.txt")); err == nil { // cp.txt is written last, so the build finished
+		now := time.Now()
+		_ = os.Chtimes(keep, now, now)
+		return src, true, copyTree(done, out)
+	}
+	_ = os.RemoveAll(keep)
+	if err := r.export(ctx, ref, src); err != nil {
+		return src, false, exportError{err}
+	}
+	if err := build(ctx, javac, src, module, done); err != nil {
+		_ = os.RemoveAll(keep)
+		return src, false, err
+	}
+	r.prune()
+	return src, false, copyTree(done, out)
+}
+
+// prune removes the built commits used longest ago, keeping the newest few.
+func (r *Runner) prune() {
+	entries, _ := os.ReadDir(filepath.Join(r.Work, "built"))
+	age := func(e os.DirEntry) time.Time {
+		if info, err := e.Info(); err == nil {
+			return info.ModTime()
+		}
+		return time.Time{}
+	}
+	sort.Slice(entries, func(i, j int) bool { return age(entries[i]).After(age(entries[j])) })
+	for _, e := range entries[min(kept, len(entries)):] {
+		_ = os.RemoveAll(filepath.Join(r.Work, "built", e.Name()))
+	}
 }
 
 // nothingRan explains why no call could be compared, from the harness's notes.
@@ -433,16 +478,28 @@ func build(ctx context.Context, javac, root, module, out string) error {
 		args = append(args, "-pl", module, "-am")
 	}
 	args = append(args, "compile", "dependency:build-classpath")
-	cmd := exec.CommandContext(ctx, mvn, args...)
-	cmd.Dir, cmd.Env = run, buildEnv()
-	var output bytes.Buffer
-	cmd.Stdout, cmd.Stderr = &output, &output
-	if err := cmd.Run(); err != nil {
+	// Offline first: with the dependencies already on this machine Maven needs no network, and the build is quicker.
+	// Only when that fails, as on the first build of a project, is it allowed to download.
+	for _, mode := range []string{"-o", ""} {
+		full := args
+		if mode != "" {
+			full = append([]string{mode}, args...)
+		}
+		cmd := exec.CommandContext(ctx, mvn, full...)
+		cmd.Dir, cmd.Env = run, buildEnv()
+		var output bytes.Buffer
+		cmd.Stdout, cmd.Stderr = &output, &output
+		err := cmd.Run()
+		if err == nil {
+			break
+		}
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		logger().Debug("maven failed", "dir", run, "args", strings.Join(args, " "), "output", tail(output.String(), 2000))
-		return errors.New(mavenError(output.String()))
+		logger().Debug("maven failed", "dir", run, "args", strings.Join(full, " "), "output", tail(output.String(), 2000))
+		if mode == "" {
+			return errors.New(mavenError(output.String()))
+		}
 	}
 	cp, err := os.ReadFile(filepath.Join(dir, cpFile))
 	if err != nil {

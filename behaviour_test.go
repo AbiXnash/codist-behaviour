@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -271,5 +272,40 @@ func TestNothingRan(t *testing.T) {
 	if !strings.Contains(nothingRan([]string{"page: not in the old code", "no class a.B"}), "adds this code") ||
 		!strings.Contains(nothingRan([]string{"x: no way to make a Y"}), "no way to make") || !strings.Contains(nothingRan(nil), "no inputs") {
 		t.Error("reasons")
+	}
+}
+
+// A commit is built once: the new side of one run is the old side of the next, and only a few are kept.
+func TestBuiltCommitsAreReused(t *testing.T) {
+	needJDK(t)
+	r := newRepo(t)
+	r.commit("Add prices", map[string]string{calc: priceV1})
+	second := r.commit("Round tax", map[string]string{calc: strings.Replace(priceV1, "return cents + tax;", "return cents + tax + 1;", 1)})
+	third := r.commit("Round tax more", map[string]string{calc: strings.Replace(priceV1, "return cents + tax;", "return cents + tax + 2;", 1)})
+	run := r.runner(t)
+	if rep := run.Run(context.Background(), second); rep.Status != "done" {
+		t.Fatalf("%+v", rep)
+	}
+	_, javac, _ := jdk()
+	out := filepath.Join(t.TempDir(), "again")
+	src, reused, err := run.version(context.Background(), javac, second, "app", out)
+	if err != nil || !reused {
+		t.Fatalf("the commit just built was built again: reused %v, err %v", reused, err)
+	}
+	if _, err := os.Stat(filepath.Join(src, filepath.FromSlash(calc))); err != nil {
+		t.Errorf("the kept source is gone: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(out, "classes", "shop", "Price.class")); err != nil {
+		t.Errorf("the kept classes were not handed over: %v", err)
+	}
+	if rep := run.Run(context.Background(), third); rep.Status != "done" || rep.Differ == 0 {
+		t.Fatalf("a run on a reused build: %+v", rep)
+	}
+	for i := 0; i < kept+3; i++ { // older builds are removed
+		os.MkdirAll(filepath.Join(run.Work, "built", fmt.Sprintf("old%d", i)), 0o755)
+	}
+	run.prune()
+	if left, _ := os.ReadDir(filepath.Join(run.Work, "built")); len(left) != kept {
+		t.Errorf("%d built commits kept, want %d", len(left), kept)
 	}
 }
